@@ -1,11 +1,14 @@
 """
-ToxViz — limpeza e consolidação das 4 fontes de toxicidade peptídica.
+ToxViz — limpeza e consolidação das fontes de toxicidade peptídica.
 
 Fontes:
-  - NTxPred2 (independent + cross_val)  -> neurotoxin
-  - hemolytik.fasta                     -> hemotoxin
-  - epitope_table_export (IEDB)         -> immunotoxin
-  - ToxProt.fasta                       -> cytotoxin
+  - NTxPred2 (independent + cross_val)          -> neurotoxin
+  - hemolytik.fasta                             -> hemotoxin
+  - epitope_table_export (IEDB)                 -> immunotoxin
+  - ToxProt.fasta                                -> cytotoxin
+  - hemolytic-and-cytotoxic-activities.csv       -> hemotoxin (eritrócito)
+                                                     + cytotoxin (célula
+                                                     saudável não-eritrócito)
 
 Saída: sequence, neurotoxin, hemotoxin, immunotoxin, cytotoxin (0/1)
 multitoxin é deliberadamente OMITIDO aqui — é derivado em tempo de
@@ -24,13 +27,23 @@ DB_DIR = DATA_DIR / "raw_data"
 
 MIN_LEN, MAX_LEN = 5, 50
 STANDARD_AA = set("ACDEFGHIKLMNPQRSTVWY")
+LYSIS_THRESHOLD = 50.0  # % de lise/morte celular para considerar positivo (padrão HC50/CC50)
 
 
 def is_clean_sequence(seq: str) -> bool:
-    """Sequência só com aminoácidos padrão e dentro do range de tamanho."""
+    """
+    Sequência só com aminoácidos padrão (L, maiúsculo) e dentro do range de
+    tamanho. Case-sensitive DE PROPÓSITO: minúscula em notação de peptídeo
+    normalmente indica aminoácido D (estereoisômero) — não é uma variação de
+    formatação que dá pra normalizar com .upper(). Fazer isso fundiria
+    silenciosamente um peptídeo D com seu equivalente L como se fossem a
+    mesma molécula, o que é quimicamente incorreto — e o ESM-2 não tem
+    como representar D-aminoácido de qualquer forma (só reconhece os 20
+    L-aminoácidos naturais no seu vocabulário).
+    """
     if not (MIN_LEN <= len(seq) <= MAX_LEN):
         return False
-    return set(seq.upper()) <= STANDARD_AA
+    return set(seq) <= STANDARD_AA
 
 
 def parse_fasta(path: str) -> list[tuple[str, str]]:
@@ -92,14 +105,68 @@ def load_cytotoxin() -> set[str]:
     return clean
 
 
+# --------------------------------------- hemotoxin/cytotoxin extra (DBAASP-like)
+def _extract_pct(activity_str) -> float | None:
+    """Extrai o número de '45% Hemolysis' / '<5% Hemolysis' / '50% Cell death'."""
+    if pd.isna(activity_str):
+        return None
+    m = re.search(r"([\d.]+)\s*%", str(activity_str))
+    return float(m.group(1)) if m else None
+
+
+def load_hemo_cyto_extra() -> tuple[set[str], set[str]]:
+    """
+    Fonte adicional (formato DBAASP-like): uma linha por (peptídeo, célula-alvo,
+    concentração testada). Não é binária — precisa agregar por sequência e
+    aplicar limiar de positividade (LYSIS_THRESHOLD) antes de usar.
+
+    Split por tipo de célula-alvo:
+      - contém "erythrocyte"          -> candidato a hemotoxin
+      - qualquer outra célula (normal, não-eritrócito, não-câncer)
+                                       -> candidato a cytotoxin
+    """
+    df = pd.read_csv(DB_DIR / "hemolytic-and-cytotoxic-activities.csv")
+    df["pct"] = df["Activity Measure for Lysis"].apply(_extract_pct)
+
+    is_erythrocyte = df["Target Cell"].str.contains("erythrocyte", case=False, na=False)
+
+    def positives_for(mask) -> set[str]:
+        sub = df[mask]
+        # positivo = ATINGIU o limiar em pelo menos uma condição testada
+        hit = sub.groupby("Peptide Sequence")["pct"].max()
+        positive_seqs = hit[hit >= LYSIS_THRESHOLD].index.astype(str)
+        return {s for s in positive_seqs if is_clean_sequence(s)}
+
+    hemo_extra = positives_for(is_erythrocyte)
+    cyto_extra = positives_for(~is_erythrocyte)
+
+    print(f"[hemotoxin-extra] linhas eritrócito={int(is_erythrocyte.sum())} | "
+          f"seqs únicas={df[is_erythrocyte]['Peptide Sequence'].nunique()} | "
+          f"positivas limpas (>={LYSIS_THRESHOLD:.0f}%)={len(hemo_extra)}")
+    print(f"[cytotoxin-extra] linhas célula normal={int((~is_erythrocyte).sum())} | "
+          f"seqs únicas={df[~is_erythrocyte]['Peptide Sequence'].nunique()} | "
+          f"positivas limpas (>={LYSIS_THRESHOLD:.0f}%)={len(cyto_extra)}")
+
+    return hemo_extra, cyto_extra
+
+
 def main():
     neuro = load_neurotoxin()
     hemo = load_hemotoxin()
     immuno = load_immunotoxin()
     cyto = load_cytotoxin()
+    hemo_extra, cyto_extra = load_hemo_cyto_extra()
+
+    hemo_before, cyto_before = len(hemo), len(cyto)
+    hemo = hemo | hemo_extra
+    cyto = cyto | cyto_extra
+    print(f"[hemotoxin] após união com fonte extra: {hemo_before} -> {len(hemo)} "
+          f"(+{len(hemo) - hemo_before} novas)")
+    print(f"[cytotoxin] após união com fonte extra: {cyto_before} -> {len(cyto)} "
+          f"(+{len(cyto) - cyto_before} novas)")
 
     all_seqs = neuro | hemo | immuno | cyto
-    print(f"\nTotal de sequências únicas (união das 4 fontes): {len(all_seqs)}")
+    print(f"\nTotal de sequências únicas (união de todas as fontes): {len(all_seqs)}")
 
     rows = []
     for s in sorted(all_seqs):

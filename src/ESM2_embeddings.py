@@ -3,20 +3,22 @@ ToxViz — extração de embeddings ESM-2 35M para a base consolidada,
 usando exatamente a mesma biblioteca e checkpoint do pipeline NoiTox:
 
     biblioteca:  fair-esm  (pip install fair-esm==1.0.3)
-    checkpoint:  esm2_t12_35M_UR50D  (12 camadas, 480d)
-    *** ATENÇÃO: o pacote correto é "fair-esm", não "esm" (esm é a API
-        do ESM3, incompatível) — mesmo problema que vocês já resolveram
-        no pipeline do NoiTox.
+    checkpoint:  esm2_t12_35M_UR50D  (12 camadas, 480d).
 
 Agregação: mean-pooling sobre os tokens de resíduo, excluindo
-<cls>/<bos> e <eos> — mesma lógica usada para o modelo MLP do NoiTox
-(que também usa ESM-2 diretamente, sem grafo).
+<cls>/<bos> e <eos>.
 
 Saída: toxviz_with_embeddings.parquet
 """
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
+
+SCRIPT_DIR = Path(__file__).resolve().parent      # .../toxviz/src
+PROJECT_ROOT = SCRIPT_DIR.parent                    # .../toxviz
+DATA_DIR = PROJECT_ROOT / "data"
+
 
 MODEL_NAME = "esm2_t12_35M_UR50D"   # mesma checkpoint do NoiTox
 REPR_LAYER = 12                      # última camada do t12 (480d)
@@ -77,7 +79,7 @@ def embed_batch(seqs: list[str], model, batch_converter, device: str) -> np.ndar
 
 
 def main():
-    df = pd.read_csv("toxviz_consolidated.csv")
+    df = pd.read_csv(DATA_DIR/"toxviz_consolidated.csv")
     sequences = df["sequence"].tolist()
     print(f"Total de sequências a embedar: {len(sequences)}")
 
@@ -92,11 +94,9 @@ def main():
             print(f"  {i + len(batch)}/{len(sequences)}")
 
     embeddings = np.vstack(embeddings)
-    print("Shape final dos embeddings:", embeddings.shape)  # (N, 480)
 
     df["embedding"] = list(embeddings)
-    df.to_parquet("toxviz_with_embeddings.parquet", index=False)
-    print("Salvo em toxviz_with_embeddings.parquet")
+    df.to_parquet(DATA_DIR / "toxviz_with_embeddings.parquet", index=False)
 
 
 if __name__ == "__main__":
