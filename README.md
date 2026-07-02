@@ -33,12 +33,21 @@ toxviz/
 ├── index.html              # visualização final (abrir direto ou via GitHub Pages)
 ├── README.md
 ├── src/
+│   ├── clean_and_consolidate.py     # consolida as bases brutas em 1 CSV
 │   ├── ESM2_embeddings.py           # extrai embeddings ESM-2 (roda em cluster/GPU)
 │   └── build_interactive.py         # calcula UMAP + candidatos, gera index.html
 └── data/
+    ├── toxviz_consolidated.csv      # sequence + 4 flags de toxicidade
     ├── toxviz_with_embeddings.parquet
     ├── toxviz_umap.csv              # cache da projeção UMAP
-    └── candidates.csv               # candidatos a multitoxicidade (saída final)
+    ├── candidates.csv               # candidatos a multitoxicidade (saída final)
+    └── raw_data/                    # bases brutas de origem
+        ├── epitope_table_export_1782853329.csv         # IEDB
+        ├── NTxPred2_independent_dataset.csv             # NTxPred2
+        ├── NTxPred2_cross_val_dataset.csv               # NTxPred2
+        ├── ToxProt.fasta                                # Tox-Prot (UniProt)
+        ├── hemolytik.fasta                               # Hemolytik2
+        └── hemolytic-and-cytotoxic-activities.csv        # DBAASP-like (hemo + cyto célula saudável)
 ```
 
 ## Como rodar localmente
