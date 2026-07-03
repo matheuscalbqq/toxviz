@@ -583,7 +583,7 @@ def main():
         <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>ToxViz — exploração interativa de toxicidade peptídica</title>
+        <title>ToxViz</title>
         <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
         <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
         <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
@@ -725,16 +725,18 @@ def main():
         <div class="page">
 
         <header class="hero">           
-            <h1>Exploração Interativa de Toxicidade Peptídica</h1>
+            <h1>Interactive Exploration of Peptide Toxicity</h1>
             <p class="subtitle">
-            Comparação visual entre bases de toxicidade de peptídeos, com densidade de
-            cada categoria isolada, candidatos a multitoxicidade não anotada, 
-            identificados por vizinhança no espaço de embedding ESM-2.
+            Visual comparison of peptide toxicity datasets, 
+            showing the density of each isolated category and 
+            candidates for unannotated multitoxicity identified 
+            by proximity within the ESM-2 embedding space.
             </p>
             <div class="badges">
-            <span class="badge"><strong>{n_sequences:,}</strong> sequências únicas</span>
-            <span class="badge">4 categorias de toxicidade</span>
-            <span class="badge"><strong>{n_candidates}</strong> candidatos a multitoxicidade</span>
+            <span class="badge"><strong>{n_sequences:,}</strong> unique sequences</span>
+            <span class="badge">5 public databases</span>
+            <span class="badge">4 toxicity categories</span>
+            <span class="badge"><strong>{n_candidates}</strong> multitoxicity candidates</span>
             </div>
             
         </header>
@@ -750,9 +752,11 @@ def main():
         </div>
 
         <footer class="methodology">
-            <p><strong>Metodologia resumida:</strong> UMAP (480d → 2D, ESM-2) com densidade normalizada pelo pico de
-            cada categoria. Candidatos calculados via k-NN no espaço de embedding original, com k derivado estatisticamente 
-            por categoria-alvo e teste binomial contra a taxa-base populacional, para corrigir o efeito-teto de categorias dominantes.</p>
+            <p><strong>Methodology summary:</strong> UMAP (480d → 2D, ESM-2) with density normalized 
+            by the peak of each category. Candidates calculated via k-NN in the original 
+            embedding space, with k derived statistically for each target category and a 
+            binomial test against the population baseline rate to correct for the ceiling 
+            effect of dominant categories.</p>
         </footer>
 
         </div>

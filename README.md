@@ -1,86 +1,76 @@
-# ToxViz — Exploração Interativa de Toxicidade Peptídica
+# ToxViz — Interactive Exploration of Peptide Toxicity
 
-**Trabalho prático — INF 723 Data Visualization 2026/01 (UFV)**
-Proposta de visualização interativa aplicada a pesquisa própria (toxicidade de peptídeos), seguindo as diretrizes do IEEE VIS Bio+MedVis Challenge 2026.
+**Practical assignment — INF 723 Data Visualization 2026/01 (UFV)**
+Interactive visualization proposal applied to original research (peptide toxicity), following the guidelines of the IEEE VIS Bio+MedVis Challenge 2026.
 
-🔗 **Demo ao vivo:** https://matheuscalbqq.github.io/toxviz/
+🔗 **Live demo:** https://matheuscalbqq.github.io/toxviz/
 
 ---
 
-## O problema
+## The problem
 
-Bases de dados de toxicidade peptídica (hemolítica, citotóxica, neurotóxica, imunotóxica) são publicadas de forma fragmentada, cada uma com critérios próprios de anotação. Isso dificulta responder perguntas simples como: *quanto essas categorias realmente se sobrepõem?* e *quantos peptídeos podem ser multitóxicos sem que isso esteja anotado em nenhuma base individual?*
+Peptide toxicity databases (hemolytic, cytotoxic, neurotoxic, immunotoxic) are published in a fragmented way, each with its own annotation criteria. This makes it difficult to answer simple questions such as: *how much do these categories actually overlap?* and *how many peptides might be multi-toxic without this being annotated in any single database?*
 
-## A proposta
+## The proposal
 
-Consolidei 4 bases públicas (Hemolytik2, NTxPred2, IEDB, Tox-Prot) em **14.389 sequências únicas**, com embeddings ESM-2 (480d) por sequência, e construímos um protótipo interativo com duas visualizações coordenadas:
+I consolidated 4 public databases (Hemolytik2, NTxPred2, IEDB, Tox-Prot) into **14,389 unique sequences**, with ESM-2 embeddings (480d) per sequence, and built an interactive prototype with two coordinated visualizations:
 
-- **UMAP** — densidade espacial de cada categoria isolada (normalizada pelo pico da própria categoria, para não ser dominada pela classe majoritária), com interseções confirmadas e candidatos a multitoxicidade destacados.
-- **UpSet plot** — interseções entre as 4 categorias (escala log), com candidatos empilhados sobre as barras confirmadas.
+- **UMAP** — spatial density of each isolated category (normalized by that category's own peak, so as not to be dominated by the majority class), with confirmed intersections and multi-toxicity candidates highlighted.
+- **UpSet plot** — intersections among the 4 categories (log scale), with candidates stacked on top of the confirmed bars.
 
-As duas visões são ligadas por *brushing & linking*: selecionar uma área no UMAP ou clicar numa barra do UpSet revela os pontos correspondentes em ambos.
+The two views are linked via *brushing & linking*: selecting an area on the UMAP or clicking an UpSet bar reveals the corresponding points in both.
 
-### Candidatos a multitoxicidade não anotada
-Além do dado confirmado, o protótipo identifica **candidatos estatísticos**: sequências anotadas com uma única categoria, mas cuja vizinhança no espaço de embedding ESM-2 (480 dimensões — não no UMAP 2D, que não preserva distância entre clusters distantes de forma confiável) é estatisticamente enriquecida para outra categoria. O método usa:
-- k-NN com **k derivado estatisticamente por categoria-alvo**, o quecorrige um efeito-teto que tornava impossível detectar candidatos para a categoria majoritária com k fixo;
-- teste binomial contra a taxa-base populacional (p < 0,001);
-- probabilidade posterior via atualização Bayesiana (prior Beta centrado na taxa-base).
+### Candidates for unannotated multi-toxicity
+Beyond the confirmed data, the prototype identifies **statistical candidates**: sequences annotated with a single category, but whose neighborhood in the ESM-2 embedding space (480 dimensions — not the 2D UMAP, which does not reliably preserve distance between distant clusters) is statistically enriched for another category. The method uses:
+- k-NN with **k statistically derived per target category**, which corrects a ceiling effect that made it impossible to detect candidates for the majority category with a fixed k;
+- a binomial test against the population base rate (p < 0.001);
+- a posterior probability via Bayesian update (Beta prior centered on the base rate).
 
-## Estrutura do repositório
+## Repository structure
 
 ```
 toxviz/
-├── index.html              # visualização final (abrir direto ou via GitHub Pages)
+├── index.html              # final visualization (open directly or via GitHub Pages)
 ├── README.md
 ├── src/
-│   ├── clean_and_consolidate.py     # consolida as bases brutas em 1 CSV
-│   ├── ESM2_embeddings.py           # extrai embeddings ESM-2 (roda em cluster/GPU)
-│   └── build_interactive.py         # calcula UMAP + candidatos, gera index.html
+│   ├── clean_and_consolidate.py     # consolidates the raw databases into 1 CSV
+│   ├── ESM2_embeddings.py           # extracts ESM-2 embeddings (runs on cluster/GPU)
+│   └── build_interactive.py         # computes UMAP + candidates, generates index.html
 └── data/
-    ├── toxviz_consolidated.csv      # sequence + 4 flags de toxicidade
+    ├── toxviz_consolidated.csv      # sequence + 4 toxicity flags
     ├── toxviz_with_embeddings.parquet
-    ├── toxviz_umap.csv              # cache da projeção UMAP
-    ├── candidates.csv               # candidatos a multitoxicidade (saída final)
-    └── raw_data/                    # bases brutas de origem
+    ├── toxviz_umap.csv              # UMAP projection cache
+    ├── candidates.csv               # multi-toxicity candidates (final output)
+    └── raw_data/                    # raw source databases
         ├── epitope_table_export_1782853329.csv         # IEDB
         ├── NTxPred2_independent_dataset.csv             # NTxPred2
         ├── NTxPred2_cross_val_dataset.csv               # NTxPred2
         ├── ToxProt.fasta                                # Tox-Prot (UniProt)
         ├── hemolytik.fasta                               # Hemolytik2
-        └── hemolytic-and-cytotoxic-activities.csv        # DBAASP-like (hemo + cyto célula saudável)
+        └── hemolytic-and-cytotoxic-activities.csv        # DBAASP-like (hemo + cyto healthy cell)
 ```
 
-## Como rodar localmente
+## How to run locally
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install altair pandas numpy scipy scikit-learn umap-learn pyarrow fair-esm torch
 
-python3 src/clean_and_consolidate.py      # gera data/toxviz_consolidated.csv
-python3 src/ESM2_embeddings.py            # gera data/toxviz_with_embeddings.parquet
-python3 src/build_interactive.py          # gera index.html + data/candidates.csv
+python3 src/clean_and_consolidate.py      # generates data/toxviz_consolidated.csv
+python3 src/ESM2_embeddings.py            # generates data/toxviz_with_embeddings.parquet
+python3 src/build_interactive.py          # generates index.html + data/candidates.csv
 ```
 
-`index.html` é autocontido (usa Vega/Vega-Lite/Vega-Embed via CDN) — basta abrir num navegador com internet.
+`index.html` is self-contained (uses Vega/Vega-Lite/Vega-Embed via CDN) — just open it in a browser with an internet connection.
 
-## Design e limitações (resumo — detalhes no documento do trabalho)
+## Design and limitations
 
-- **Paleta colorblind-safe** (Wong, 2011) em toda a visualização.
-- **Densidade normalizada por categoria**, não por contagem absoluta — evita que a categoria majoritária (`immunotoxin`, 76% da base) domine visualmente as demais.
-- **Limitação documentada**: medimos que 13 dos 27 peptídeos multitóxicos confirmados ficam visualmente "absorvidos" por uma única região no UMAP (densidade zero da segunda categoria na posição do ponto) — evidência concreta de que posição 2D não deve ser lida como prova de relação entre categorias distantes. Por isso, a detecção de candidatos usa o espaço de embedding original (480d), não o UMAP.
+- **Colorblind-safe palette** (Wong, 2011) throughout the visualization.
+- **Density normalized per category**, not by absolute count — prevents the majority category (`immunotoxin`, 76% of the data) from visually dominating the others.
+- **Documented limitation**: we measured that 13 of the 27 confirmed multi-toxic peptides appear visually "absorbed" into a single region on the UMAP (zero density for the second category at the point's position) — concrete evidence that 2D position should not be read as proof of a relationship between distant categories. This is why candidate detection uses the original embedding space (480d), not the UMAP.
 
-## Uso de Inteligência Artificial
+## Author
 
-Este projeto foi desenvolvido com assistência de IA (Claude, Anthropic) nas seguintes etapas:
-- Geração e iteração do código de visualização (Python/Altair/Vega-Lite) e do HTML/CSS/JS de integração final.
-- Discussão e formalização das decisões estatísticas do módulo de detecção de candidatos (correção de efeito-teto via k por categoria-alvo, estimação da probabilidade posterior Bayesiana).
-- Depuração de bugs de composição de gráficos e sincronização de estado entre visualizações.
-- Revisão de texto e organização deste README.
-
-Todas as decisões de design, os dados utilizados, as escolhas metodológicas e a validação dos resultados foram definidas e revisadas pelos autores.
-
-## Autores
-
-[Nome 1], [Nome 2] — Departamento de Ciência da Computação, Universidade Federal de Viçosa
-Disciplina: INF 723 — Data Visualization (Profa. Sabrina de Azevedo Silveira)
+Matheus Cavalcanti de Albuquerque, LaBio — Department of Computer Science, Universidade Federal de Viçosa
+Course: INF 723 — Data Visualization (Prof. Sabrina de Azevedo Silveira)
