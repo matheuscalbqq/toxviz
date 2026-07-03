@@ -418,7 +418,7 @@ def main():
     )
 
     # ------------------------------------------------------------ UpSet bars
-    x_log = alt.X("count():Q", title="Total (escala log)", scale=alt.Scale(type="log", domain=[1, 20000]),
+    x_log = alt.X("count():Q", title="Total (log scale)", scale=alt.Scale(type="log", domain=[1, 20000]),
                   axis=alt.Axis(grid=False))
     UPSET_ROW_H = 54
     combo_abbrev_expr = " : ".join(
@@ -517,7 +517,7 @@ def main():
 
 
     header_df = pd.DataFrame({
-        "label": ["Sequência", "Origem", "Possível", "k-NN %"],
+        "label": ["Sequence", "Original Label", "Possible Label", "k-NN %"],
         "x": [COL_SEQ_X, COL_SRC_X, COL_TGT_X, COL_PCT_X],
     })
     candidate_list_header = (
@@ -528,7 +528,7 @@ def main():
     )
     
     table_chart = alt.vconcat(candidate_list_header, candidate_list_body, spacing=2).properties(
-        title="Exemplares de possíveis candidatos"
+        title="Examples of potential candidates"
     )
 
     bars = alt.layer(bg_bars, bg_labels, fg_bars, 
